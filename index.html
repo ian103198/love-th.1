@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ThreadLove</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @keyframes fadeIn       { from{opacity:0;transform:translateY(-5px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes slideInRight { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
+    .animate-fade-in  { animation: fadeIn 0.3s ease-out forwards; }
+    .animate-slide-in { animation: slideInRight 0.3s ease-out forwards; }
+    ::-webkit-scrollbar { display: none; }
+    .line-clamp-3 { display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden; }
+  </style>
+</head>
+<body class="bg-black text-white font-sans antialiased pb-32">
+
+<!-- ═══════════════════════════════════════ 登入頁 ══════════════════════════════════════ -->
+<div id="login-overlay" class="fixed inset-0 bg-black z-[100] flex flex-col items-center justify-center gap-10 p-8">
+  <div class="text-center space-y-2">
+    <h1 class="text-5xl font-black tracking-tight">Thread<span class="text-pink-400">Love</span></h1>
+    <p class="text-gray-400 text-sm">登入後開始分享你的脆</p>
+  </div>
+  <button id="google-login-btn" onclick="window.signInWithGoogle()"
+    class="flex items-center gap-3 bg-white text-black font-semibold px-8 py-3.5 rounded-full text-base hover:bg-gray-100 active:scale-95 transition shadow-xl">
+    <svg class="w-5 h-5" viewBox="0 0 24 24">
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+    </svg>
+    使用 Google 帳號登入
+  </button>
+  <p id="login-error" class="text-red-400 text-sm hidden"></p>
+</div>
+
+<!-- ═══════════════════════════════════════ 主 App ══════════════════════════════════════ -->
+<main id="app" class="hidden max-w-xl mx-auto relative overflow-hidden">
+
+  <!-- 首頁 -->
+  <section id="tab-feed" class="block">
+    <div class="p-4 border-b border-gray-800 flex gap-3 bg-black z-10 sticky top-0">
+      <div id="post-avatar-wrap" onclick="window.switchTab('tab-profile',document.querySelectorAll('.nav-btn')[3])"
+           class="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 mt-1 cursor-pointer bg-gray-700 flex items-center justify-center">
+        <img id="post-avatar-img" src="" class="w-full h-full object-cover hidden">
+        <svg id="post-avatar-icon" class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+        </svg>
+      </div>
+      <div class="flex-1">
+        <textarea id="postContent-feed" rows="2" placeholder="開始發佈你的脆..."
+          class="w-full bg-transparent text-white placeholder-gray-500 resize-none outline-none mt-2 text-[15px]"></textarea>
+        <div id="previewContainer-feed" class="hidden mt-2 relative inline-block">
+          <img id="previewImg-feed" class="rounded-xl border border-gray-800 max-h-48 object-cover">
+          <button onclick="window.removePreview('feed')" class="absolute top-2 right-2 bg-black/70 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">✕</button>
+        </div>
+        <div class="flex justify-between items-center mt-3">
+          <input type="file" id="imageInput-feed" accept="image/*" class="hidden" onchange="window.handleImageSelect(this,'feed')">
+          <label for="imageInput-feed" class="cursor-pointer text-gray-500 hover:text-gray-300 flex items-center gap-1.5 text-sm">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            照片
+          </label>
+          <button onclick="window.submitPost('feed')" class="bg-white text-black px-4 py-1.5 rounded-full font-bold text-sm hover:bg-gray-200 transition">發布</button>
+        </div>
+      </div>
+    </div>
+    <div id="feedList"><div class="p-10 text-center text-gray-600 text-sm">載入貼文中...</div></div>
+  </section>
+
+  <!-- 搜尋 -->
+  <section id="tab-search" class="hidden">
+    <div class="p-4 border-b border-gray-800 bg-black sticky top-0 z-10">
+      <div class="relative">
+        <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input id="searchInput" type="text" placeholder="搜尋貼文關鍵字..." oninput="window.searchPosts(this.value)"
+          class="w-full bg-gray-900 border border-gray-700 rounded-full pl-9 pr-4 py-2.5 text-sm text-white placeholder-gray-500 outline-none focus:border-gray-500 transition">
+      </div>
+      <p id="searchMeta" class="text-xs text-gray-600 mt-2 text-center hidden">依讚數排序，讚數相同則比留言數</p>
+    </div>
+    <div id="searchResults"><div class="p-10 text-center text-gray-500 text-sm">輸入關鍵字開始搜尋</div></div>
+  </section>
+
+  <!-- 匿名表白 -->
+  <section id="tab-crush" class="hidden">
+    <div class="py-10 border-b border-gray-800 flex justify-center items-center">
+      <h2 class="text-3xl font-extrabold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-600">匿名表白</h2>
+    </div>
+    <div class="p-4 border-b border-gray-800 flex gap-3">
+      <div class="w-10 h-10 rounded-full bg-gray-900 border border-gray-800 flex-shrink-0 flex items-center justify-center text-base font-bold text-gray-500 mt-1">?</div>
+      <div class="flex-1">
+        <textarea id="postContent-crush" rows="2" placeholder="寫下不敢說出口的秘密... (沒人知道你是誰)"
+          class="w-full bg-transparent text-white placeholder-gray-600 resize-none outline-none mt-2 text-[15px]"></textarea>
+        <div id="previewContainer-crush" class="hidden mt-2 relative inline-block">
+          <img id="previewImg-crush" class="rounded-xl border border-gray-800 max-h-48 object-cover">
+          <button onclick="window.removePreview('crush')" class="absolute top-2 right-2 bg-black/70 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs">✕</button>
+        </div>
+        <div class="flex justify-between items-center mt-3">
+          <input type="file" id="imageInput-crush" accept="image/*" class="hidden" onchange="window.handleImageSelect(this,'crush')">
+          <label for="imageInput-crush" class="cursor-pointer text-gray-500 hover:text-gray-300 flex items-center gap-1.5 text-sm">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            照片
+          </label>
+          <button onclick="window.submitPost('crush')" class="bg-pink-600 text-white px-5 py-1.5 rounded-full font-bold text-sm hover:bg-pink-700 transition">偷偷發佈</button>
+        </div>
+      </div>
+    </div>
+    <div id="crushList"></div>
+  </section>
+
+  <!-- 個人設定 -->
+  <section id="tab-profile" class="hidden p-6 mt-4 space-y-6">
+    <div class="border border-gray-800 rounded-xl p-5 bg-gray-900/30">
+      <div class="flex items-center gap-4 mb-5">
+        <div class="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-700 bg-gray-700 flex-shrink-0">
+          <img id="setting-avatar-img" src="" class="w-full h-full object-cover hidden">
+          <svg id="setting-avatar-icon" class="w-full h-full text-gray-400 p-3" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+          </svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="font-bold text-base truncate" id="setting-display-name">—</p>
+          <p class="text-gray-500 text-xs truncate" id="setting-display-email">—</p>
+        </div>
+      </div>
+      <div class="mb-4">
+        <label class="text-xs text-gray-400 block mb-1">自訂暱稱（新發文會用這個名字）</label>
+        <input type="text" id="setting-name-input"
+          class="w-full bg-black border border-gray-700 rounded-lg p-2 text-sm text-white outline-none focus:border-white transition">
+      </div>
+      <button onclick="window.saveProfile()" class="w-full bg-white text-black font-bold py-2 rounded-lg text-sm hover:bg-gray-200 transition mb-3">儲存暱稱</button>
+      <button onclick="window.signOutUser()" class="w-full border border-gray-700 text-gray-400 font-medium py-2 rounded-lg text-sm hover:border-gray-500 hover:text-white transition flex items-center justify-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        登出
+      </button>
+    </div>
+    <div class="border border-red-900/40 rounded-xl p-5 bg-red-950/10">
+      <h3 class="text-red-400 font-semibold mb-1 text-sm tracking-wide uppercase">危險區域</h3>
+      <p class="text-gray-600 text-xs mb-4">以下操作永久無法復原。</p>
+      <div class="space-y-2.5">
+        <button onclick="window.deleteAllMyPosts()" class="w-full flex items-center justify-center gap-2 border border-red-900 text-red-500 font-medium py-2.5 rounded-lg text-sm hover:bg-red-900/20 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          刪除我所有的貼文
+        </button>
+        <button onclick="window.deleteAllMyComments()" class="w-full flex items-center justify-center gap-2 border border-red-900 text-red-500 font-medium py-2.5 rounded-lg text-sm hover:bg-red-900/20 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+          刪除我所有的留言
+        </button>
+        <button onclick="window.deleteEverything()" class="w-full flex items-center justify-center gap-2 bg-red-950/30 border border-red-800 text-red-300 font-semibold py-3 rounded-lg text-sm hover:bg-red-900/40 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+          一鍵清除所有發文與留言
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 用戶主頁 overlay -->
+  <section id="tab-user-profile" class="hidden absolute top-0 left-0 w-full h-full bg-black z-40 pb-20 overflow-y-auto animate-slide-in">
+    <div class="sticky top-0 bg-black/90 backdrop-blur-md p-4 border-b border-gray-800 flex items-center gap-4 z-50">
+      <button onclick="window.closeUserProfile()" class="text-white hover:text-gray-300 transition">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+      </button>
+      <span class="font-bold text-lg" id="profile-header-title">個人檔案</span>
+    </div>
+    <div class="p-6 border-b border-gray-800 flex flex-col items-center">
+      <div id="up-avatar-container" class="mb-4"></div>
+      <h2 id="up-name" class="text-xl font-bold mb-1"></h2>
+    </div>
+    <div class="flex border-b border-gray-800">
+      <button onclick="window.switchProfileSubTab('posts')" id="subtab-posts" class="flex-1 text-center py-3 border-b-2 border-white font-bold text-sm text-white transition">串文</button>
+      <button onclick="window.switchProfileSubTab('replies')" id="subtab-replies" class="flex-1 text-center py-3 text-gray-500 font-bold text-sm transition hover:text-gray-300">回覆</button>
+    </div>
+    <div id="userProfilePosts"   class="min-h-[50vh] block  pb-10"></div>
+    <div id="userProfileReplies" class="min-h-[50vh] hidden pb-10"></div>
+  </section>
+
+</main>
+
+<!-- 底部導覽 -->
+<nav id="nav" class="hidden fixed bottom-0 w-full bg-black border-t border-gray-800 flex justify-around py-4 pb-[max(1rem,env(safe-area-inset-bottom))] z-50">
+  <button onclick="window.switchTab('tab-feed',this);window.applyAlgorithm();" class="nav-btn text-white">
+    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+  </button>
+  <button onclick="window.switchTab('tab-search',this)" class="nav-btn text-gray-500 hover:text-white transition-colors">
+    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+  </button>
+  <button onclick="window.switchTab('tab-crush',this)" class="nav-btn text-gray-500 hover:text-white transition-colors">
+    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+  </button>
+  <button onclick="window.switchTab('tab-profile',this)" class="nav-btn text-gray-500 hover:text-white transition-colors">
+    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+  </button>
+</nav>
+
+<script type="module">
+import { initializeApp }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getFirestore, collection, doc, addDoc, setDoc, getDoc, getDocs, updateDoc, deleteDoc,
+         query, where, orderBy, limit, onSnapshot, increment, writeBatch, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getStorage, ref as sRef, uploadBytes, getDownloadURL }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js';
+
+// ── 初始化 ──
+const firebaseConfig = {
+  apiKey:            "AIzaSyBbgm-2P7GWlcD3ii3zR_8czOdTicI8he8",
+  authDomain:        "love-th.firebaseapp.com",
+  projectId:         "love-th",
+  storageBucket:     "love-th.firebasestorage.app",
+  messagingSenderId: "331866801558",
+  appId:             "1:331866801558:web:a590b5942de2fd56dd49b7"
+};
+const fbApp   = initializeApp(firebaseConfig);
+const auth    = getAuth(fbApp);
+const db      = getFirestore(fbApp);
+const storage = getStorage(fbApp);
+
+// ── 狀態 ──
+let currentUser  = null;
+let postsCache   = [];
+let feedReady    = false;
+let unsubFeed    = null;
+let unsubCrush   = null;
+const myLikedPosts    = new Set(JSON.parse(localStorage.getItem('lp') || '[]'));
+const myLikedComments = new Set(JSON.parse(localStorage.getItem('lc') || '[]'));
+
+// ── 工具 ──
+const safeText = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const safeAttr = s => String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+function getRelativeTime(ts) {
+  if (!ts) return '剛剛';
+  const d=Date.now()-ts, s=d/1000|0, m=s/60|0, h=m/60|0, dy=h/24|0;
+  if (s<60) return '剛剛';
+  if (m<60) return m+' 分鐘前';
+  if (h<24) return h+' 小時前';
+  if (dy<7) return dy+' 天前';
+  const dt=new Date(ts); return (dt.getMonth()+1)+'/'+dt.getDate();
+}
+
+function normalizePost(snap) {
+  const d=snap.data(), ts=d.timestamp?.toMillis?.() || Date.now();
+  return {
+    id:snap.id, authorName:d.authorName||'未知', authorUid:d.authorUid||'',
+    authorAvatar:d.authorAvatar||'', authorInitial:d.authorInitial||(d.authorName||'?').charAt(0),
+    authorBg:d.authorBg||'bg-gray-700', text:d.text||'', imageUrl:d.imageUrl||null,
+    timestamp:ts, displayTime:getRelativeTime(ts), isCrush:!!d.isCrush,
+    likeCount:d.likeCount||0, commentCount:d.commentCount||0
+  };
+}
+
+function buildAvatarHTML(name,avatar,initial,bg,sz,clickable=true) {
+  const oc=clickable?'onclick="window.openUserProfile(\''+safeAttr(name)+'\')"':'';
+  const cr=clickable?'cursor-pointer':'';
+  if(avatar) return '<img src="'+safeAttr(avatar)+'" class="'+sz+' rounded-full object-cover flex-shrink-0 '+cr+'" '+oc+'>';
+  return '<div class="'+sz+' rounded-full '+(bg||'bg-gray-700')+' flex-shrink-0 flex items-center justify-center text-xs font-bold '+cr+'" '+oc+'>'+safeText(initial||(name||'?').charAt(0))+'</div>';
+}
+
+// ── Auth ──
+async function signInWithGoogle() {
+  const btn=document.getElementById('google-login-btn');
+  btn.disabled=true; btn.textContent='登入中...';
+  try { await signInWithPopup(auth,new GoogleAuthProvider()); }
+  catch(e) {
+    btn.disabled=false;
+    btn.innerHTML='<svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>使用 Google 帳號登入';
+    document.getElementById('login-error').textContent='登入失敗，請再試一次';
+    document.getElementById('login-error').classList.remove('hidden');
+  }
+}
+
+async function signOutUser() {
+  if (!confirm('確定要登出嗎？')) return;
+  if (unsubFeed) unsubFeed();
+  if (unsubCrush) unsubCrush();
+  await fbSignOut(auth);
+}
+
+onAuthStateChanged(auth, async user => {
+  if (user) {
+    const userRef=doc(db,'users',user.uid), snap=await getDoc(userRef);
+    let name=user.displayName||'使用者';
+    if (snap.exists()) { name=snap.data().displayName||name; }
+    else { await setDoc(userRef,{displayName:name,email:user.email,avatar:user.photoURL||'',created:serverTimestamp()}); }
+    currentUser={uid:user.uid,name,email:user.email,avatar:user.photoURL||'',initial:name.charAt(0),bg:'bg-gray-700'};
+    document.getElementById('login-overlay').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+    document.getElementById('nav').classList.remove('hidden');
+    updateAvatarUI();
+    document.getElementById('setting-display-name').textContent=currentUser.name;
+    document.getElementById('setting-display-email').textContent=currentUser.email;
+    document.getElementById('setting-name-input').value=currentUser.name;
+    startFeedListener();
+    startCrushListener();
+  } else {
+    currentUser=null;
+    document.getElementById('login-overlay').classList.remove('hidden');
+    document.getElementById('app').classList.add('hidden');
+    document.getElementById('nav').classList.add('hidden');
+  }
+});
+
+// ── 即時監聽 ──
+function startFeedListener() {
+  if (unsubFeed) unsubFeed();
+  feedReady=false;
+  const q=query(collection(db,'posts'),where('isCrush','==',false),orderBy('timestamp','desc'),limit(100));
+  unsubFeed=onSnapshot(q, snap => {
+    const fl=document.getElementById('feedList');
+    if (!feedReady) {
+      fl.innerHTML=''; postsCache=[];
+      if (snap.empty) { fl.innerHTML='<div class="p-10 text-center text-gray-600 text-sm">還沒有貼文，第一個發吧！</div>'; }
+      else snap.docs.forEach(d => { const p=normalizePost(d); postsCache.push(p); fl.appendChild(buildPostEl(p,{showDeleteBtn:p.authorUid===currentUser?.uid})); });
+      feedReady=true; applyAlgorithm(); return;
+    }
+    snap.docChanges().forEach(change => {
+      const p=normalizePost(change.doc);
+      if (change.type==='added') {
+        if (!postsCache.find(c=>c.id===p.id)) postsCache.unshift(p);
+        const empty=fl.querySelector('.text-gray-600'); if(empty) fl.innerHTML='';
+        const el=buildPostEl(p,{showDeleteBtn:p.authorUid===currentUser?.uid}); el.classList.add('animate-fade-in');
+        fl.insertBefore(el,fl.firstChild);
+      }
+      if (change.type==='modified') {
+        const idx=postsCache.findIndex(c=>c.id===p.id); if(idx>-1) Object.assign(postsCache[idx],{likeCount:p.likeCount,commentCount:p.commentCount});
+        const ex=fl.querySelector('[data-post-id="'+p.id+'"]');
+        if (ex) { const lc=ex.querySelector('.like-count'); if(lc) lc.textContent=p.likeCount; const cc=ex.querySelector('.comment-count'); if(cc) cc.textContent=p.commentCount; ex.dataset.likes=p.likeCount; }
+      }
+      if (change.type==='removed') {
+        postsCache=postsCache.filter(c=>c.id!==p.id);
+        fl.querySelector('[data-post-id="'+p.id+'"]')?.remove();
+      }
+    });
+  }, err=>console.error('feed:',err));
+}
+
+function startCrushListener() {
+  if (unsubCrush) unsubCrush();
+  const q=query(collection(db,'posts'),where('isCrush','==',true),orderBy('timestamp','desc'),limit(100));
+  unsubCrush=onSnapshot(q, snap => {
+    const cl=document.getElementById('crushList'); cl.innerHTML='';
+    if (snap.empty) { cl.innerHTML='<div class="p-10 text-center text-gray-600 text-sm">還沒有表白！</div>'; return; }
+    snap.docs.forEach(d=>cl.appendChild(buildPostEl(normalizePost(d))));
+  }, err=>console.error('crush:',err));
+}
+
+// ── 頭像 ──
+function updateAvatarUI() {
+  const av=currentUser?.avatar;
+  const img=document.getElementById('post-avatar-img'), icon=document.getElementById('post-avatar-icon');
+  if(av){img.src=av;img.classList.remove('hidden');icon.classList.add('hidden');}
+  else{img.classList.add('hidden');icon.classList.remove('hidden');}
+  const si=document.getElementById('setting-avatar-img'), sc=document.getElementById('setting-avatar-icon');
+  if(av){si.src=av;si.classList.remove('hidden');sc.classList.add('hidden');}
+  else{si.classList.add('hidden');sc.classList.remove('hidden');}
+}
+
+// ── 儲存暱稱 ──
+async function saveProfile() {
+  const n=document.getElementById('setting-name-input').value.trim();
+  if(!n) return alert('暱稱不能為空！');
+  await setDoc(doc(db,'users',currentUser.uid),{displayName:n},{merge:true});
+  currentUser.name=n; currentUser.initial=n.charAt(0);
+  document.getElementById('setting-display-name').textContent=n;
+  alert('暱稱已更新！新貼文會使用新名字。');
+}
+
+// ── 演算法 ──
+function applyAlgorithm() {
+  const fl=document.getElementById('feedList'), ps=Array.from(fl.querySelectorAll('.post-item')), now=Date.now();
+  ps.sort((a,b)=>{ const la=+a.dataset.likes||0,lb=+b.dataset.likes||0,ta=+a.dataset.timestamp||now,tb=+b.dataset.timestamp||now; return ((lb*5)+(now-tb<7200000?50:0)+Math.random()*10)-((la*5)+(now-ta<7200000?50:0)+Math.random()*10); });
+  ps.forEach(p=>fl.appendChild(p));
+}
+
+// ── 搜尋 ──
+function searchPosts(q) {
+  const c=document.getElementById('searchResults'), m=document.getElementById('searchMeta');
+  q=(q||'').trim();
+  if(!q){c.innerHTML='<div class="p-10 text-center text-gray-500 text-sm">輸入關鍵字開始搜尋</div>';m.classList.add('hidden');return;}
+  const res=postsCache.filter(p=>p.text.includes(q)).sort((a,b)=>b.likeCount!==a.likeCount?b.likeCount-a.likeCount:b.commentCount-a.commentCount);
+  if(!res.length){c.innerHTML='<div class="p-10 text-center text-gray-500 text-sm">找不到含「'+safeText(q)+'」的貼文</div>';m.classList.add('hidden');return;}
+  m.classList.remove('hidden'); c.innerHTML='';
+  res.forEach(p=>{
+    const hi=safeText(p.text).replace(new RegExp(safeText(q).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),'<mark class="bg-yellow-500/30 text-yellow-300 rounded px-0.5">$&</mark>');
+    const el=document.createElement('div'); el.className='p-4 border-b border-gray-800 cursor-pointer hover:bg-gray-900/30 transition';
+    el.onclick=()=>{switchTab('tab-feed',document.querySelectorAll('.nav-btn')[0]);applyAlgorithm();setTimeout(()=>{const t=document.querySelector('#feedList [data-post-id="'+p.id+'"]');if(t)t.scrollIntoView({behavior:'smooth',block:'center'});},150);};
+    el.innerHTML='<div class="flex gap-3 items-start">'+buildAvatarHTML(p.authorName,p.authorAvatar,p.authorInitial,p.authorBg,'w-9 h-9')+'<div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><span class="font-bold text-sm">'+safeText(p.authorName)+'</span><span class="text-gray-500 text-xs">'+p.displayTime+'</span></div><p class="text-sm text-gray-300 leading-relaxed line-clamp-3">'+hi+'</p><div class="flex gap-4 mt-2 text-xs text-gray-500"><span>♡ '+p.likeCount+'</span><span>💬 '+p.commentCount+'</span></div></div></div>';
+    c.appendChild(el);
+  });
+}
+
+// ── 圖片 ──
+function handleImageSelect(input,type){const f=input.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{document.getElementById('previewImg-'+type).src=e.target.result;document.getElementById('previewContainer-'+type).classList.remove('hidden');};r.readAsDataURL(f);}
+function removePreview(type){document.getElementById('imageInput-'+type).value='';document.getElementById('previewContainer-'+type).classList.add('hidden');}
+
+// ── 發文 ──
+async function submitPost(type) {
+  if (!currentUser) return;
+  const input=document.getElementById('postContent-'+type), text=input.value.replace(/[\s\r\n]+$/,'');
+  const isCrush=type==='crush', hasImg=!document.getElementById('previewContainer-'+type).classList.contains('hidden');
+  if (!text && !hasImg) return;
+  const btn=document.querySelector('#tab-'+type+' button[onclick*="submitPost"]');
+  if(btn){btn.disabled=true;btn.textContent='發布中...';}
+  try {
+    let imageUrl=null;
+    if(hasImg){const imgEl=document.getElementById('previewImg-'+type),resp=await fetch(imgEl.src),blob=await resp.blob(),ref=sRef(storage,'posts/'+currentUser.uid+'/'+Date.now()),snap=await uploadBytes(ref,blob);imageUrl=await getDownloadURL(snap.ref);}
+    await addDoc(collection(db,'posts'),{authorName:currentUser.name,authorUid:currentUser.uid,authorAvatar:currentUser.avatar||'',authorInitial:currentUser.initial,authorBg:currentUser.bg,text,imageUrl,isCrush,likeCount:0,commentCount:0,timestamp:serverTimestamp()});
+    input.value=''; removePreview(type);
+  } catch(e){console.error(e);alert('發布失敗，請再試一次');}
+  finally{if(btn){btn.disabled=false;btn.textContent=isCrush?'偷偷發佈':'發布';}}
+}
+
+// ── 留言 ──
+async function submitComment(btn) {
+  if (!currentUser) return;
+  const ia=btn.closest('[data-input-area]'), input=ia?.querySelector('.reply-input'), text=input?.value.trim();
+  if (!text) return;
+  const pi=btn.closest('.post-item'), postId=pi?.dataset.postId; if(!postId) return;
+  btn.disabled=true;
+  try {
+    const cd={postId,authorName:currentUser.name,authorUid:currentUser.uid,authorAvatar:currentUser.avatar||'',authorInitial:currentUser.initial,authorBg:currentUser.bg,text,replyTo:null,parentId:null,likeCount:0,timestamp:serverTimestamp()};
+    const ref=await addDoc(collection(db,'comments'),cd);
+    await updateDoc(doc(db,'posts',postId),{commentCount:increment(1)});
+    const local={...cd,id:ref.id,timestamp:Date.now(),likes:0,liked:false,replies:[]};
+    document.querySelectorAll('[data-post-id="'+postId+'"] .comments-list').forEach(l=>l.appendChild(buildCommentEl(local)));
+    document.querySelectorAll('[data-post-id="'+postId+'"] .comment-count').forEach(e=>e.textContent=parseInt(e.textContent||'0')+1);
+    input.value='';
+  } catch(e){console.error(e);alert('留言失敗');}
+  finally{btn.disabled=false;}
+}
+
+function openReplyBox(btn,replyTo,commentId,postId) {
+  const ce=btn.closest('[data-comment-id]'), body=ce?.querySelector('.comment-body');
+  if(!body||body.querySelector('.mini-reply-box')) return;
+  const av=currentUser?.avatar?'<img src="'+safeAttr(currentUser.avatar)+'" class="w-5 h-5 rounded-full object-cover flex-shrink-0 mt-0.5">':'<div class="w-5 h-5 rounded-full bg-gray-700 flex-shrink-0 flex items-center justify-center text-[9px] font-bold mt-0.5">'+safeText((currentUser?.name||'?').charAt(0))+'</div>';
+  const box=document.createElement('div');
+  box.className='mini-reply-box mt-3 flex gap-2 items-start animate-fade-in bg-gray-900/30 p-2 rounded-lg border border-gray-800';
+  box.innerHTML=av+'<div class="flex-1" data-input-area="reply"><input type="text" class="reply-input w-full bg-transparent border-b border-gray-700 text-sm pb-1 outline-none text-white focus:border-white mb-2" placeholder="回覆 @'+safeText(replyTo)+'..."><div class="flex justify-end gap-3 mt-2"><button onclick="this.closest(\'.mini-reply-box\').remove()" class="text-gray-500 text-sm font-bold hover:text-white">取消</button><button onclick="window.submitReply(this,\''+safeAttr(replyTo)+'\',\''+commentId+'\',\''+postId+'\')" class="text-black font-bold text-sm bg-white px-4 py-1.5 rounded-full hover:bg-gray-200">回覆</button></div></div>';
+  body.insertBefore(box,body.querySelector('.nested-comments-list'));
+}
+
+async function submitReply(btn,replyTo,parentId,postId) {
+  if(!currentUser) return;
+  const box=btn.closest('.mini-reply-box'), text=box?.querySelector('.reply-input')?.value.trim();
+  if(!text) return;
+  btn.disabled=true;
+  try {
+    const rd={postId,parentId,authorName:currentUser.name,authorUid:currentUser.uid,authorAvatar:currentUser.avatar||'',authorInitial:currentUser.initial,authorBg:currentUser.bg,text,replyTo,likeCount:0,timestamp:serverTimestamp()};
+    const ref=await addDoc(collection(db,'comments'),rd);
+    await updateDoc(doc(db,'posts',postId),{commentCount:increment(1)});
+    const local={...rd,id:ref.id,timestamp:Date.now(),likes:0,liked:false,replies:[]};
+    const nested=box.nextElementSibling;
+    if(nested?.classList.contains('nested-comments-list')) nested.appendChild(buildCommentEl(local,true));
+    document.querySelectorAll('[data-post-id="'+postId+'"] .comment-count').forEach(e=>e.textContent=parseInt(e.textContent||'0')+1);
+    box.remove();
+  } catch(e){console.error(e);alert('回覆失敗');}
+  finally{btn.disabled=false;}
+}
+
+// ── 刪除留言 ──
+async function deleteComment(btn) {
+  const ce=btn.closest('.comment-item'), cid=ce?.dataset.commentId, pid=ce?.dataset.postId;
+  if(!cid||!pid) return;
+  if(!confirm('確定要永久刪除這則留言？')) return;
+  btn.disabled=true;
+  try {
+    const q=query(collection(db,'comments'),where('parentId','==',cid));
+    const cs=await getDocs(q), batch=writeBatch(db);
+    cs.docs.forEach(d=>batch.delete(d.ref));
+    batch.delete(doc(db,'comments',cid));
+    await batch.commit();
+    const cnt=cs.size+1;
+    await updateDoc(doc(db,'posts',pid),{commentCount:increment(-cnt)});
+    ce.remove();
+    document.querySelectorAll('[data-post-id="'+pid+'"] .comment-count').forEach(e=>e.textContent=Math.max(0,parseInt(e.textContent||'0')-cnt));
+  } catch(e){console.error(e);alert('刪除失敗');btn.disabled=false;}
+}
+
+// ── 刪除貼文 ──
+async function deletePost(btn) {
+  const pe=btn.closest('.post-item'), pid=pe?.dataset.postId; if(!pid) return;
+  if(!confirm('確定要永久刪除此貼文？')) return;
+  btn.disabled=true;
+  try {
+    const q=query(collection(db,'comments'),where('postId','==',pid));
+    const cs=await getDocs(q), batch=writeBatch(db);
+    cs.docs.forEach(d=>batch.delete(d.ref));
+    batch.delete(doc(db,'posts',pid));
+    await batch.commit();
+    document.querySelectorAll('[data-post-id="'+pid+'"]').forEach(el=>el.remove());
+    postsCache=postsCache.filter(p=>p.id!==pid);
+  } catch(e){console.error(e);alert('刪除失敗');btn.disabled=false;}
+}
+
+// ── 刪除所有貼文 ──
+async function deleteAllMyPosts() {
+  if(!currentUser) return;
+  const mine=postsCache.filter(p=>p.authorUid===currentUser.uid);
+  if(!mine.length) return alert('你目前沒有任何貼文！');
+  if(!confirm('確定要永久刪除你的全部 '+mine.length+' 篇貼文嗎？')) return;
+  try {
+    for(const p of mine){
+      const q=query(collection(db,'comments'),where('postId','==',p.id));
+      const cs=await getDocs(q), batch=writeBatch(db);
+      cs.docs.forEach(d=>batch.delete(d.ref));
+      batch.delete(doc(db,'posts',p.id));
+      await batch.commit();
+    }
+    alert('已刪除 '+mine.length+' 篇貼文。');
+  } catch(e){console.error(e);alert('刪除失敗');}
+}
+
+// ── 刪除所有留言 ──
+async function deleteAllMyComments() {
+  if(!currentUser) return;
+  const q=query(collection(db,'comments'),where('authorUid','==',currentUser.uid));
+  const snaps=await getDocs(q);
+  if(snaps.empty) return alert('你目前沒有任何留言！');
+  if(!confirm('確定要永久刪除你的全部 '+snaps.size+' 則留言嗎？')) return;
+  try {
+    const countMap={};
+    snaps.docs.forEach(d=>{const pid=d.data().postId;if(pid)countMap[pid]=(countMap[pid]||0)+1;});
+    const batch=writeBatch(db);
+    snaps.docs.forEach(d=>batch.delete(d.ref));
+    Object.entries(countMap).forEach(([pid,cnt])=>batch.update(doc(db,'posts',pid),{commentCount:increment(-cnt)}));
+    await batch.commit();
+    document.querySelectorAll('.comment-item').forEach(el=>{if(el.dataset.authorUid===currentUser.uid)el.remove();});
+    alert('已刪除 '+snaps.size+' 則留言。');
+  } catch(e){console.error(e);alert('刪除失敗');}
+}
+
+async function deleteEverything() {
+  if(!currentUser) return;
+  const mpc=postsCache.filter(p=>p.authorUid===currentUser.uid).length;
+  const q=query(collection(db,'comments'),where('authorUid','==',currentUser.uid));
+  const cs=await getDocs(q);
+  if(!mpc && cs.empty) return alert('你目前沒有任何貼文或留言！');
+  if(!confirm('即將永久刪除 '+mpc+' 篇貼文與 '+cs.size+' 則留言，確定嗎？')) return;
+  await deleteAllMyComments();
+  await deleteAllMyPosts();
+}
+
+// ── 讚 貼文 ──
+async function togglePostLike(btn,postId) {
+  if(!currentUser) return;
+  const il=myLikedPosts.has(postId);
+  const icon=btn.querySelector('.like-icon'), cnt=btn.querySelector('.like-count');
+  const nc=parseInt(cnt?.textContent||'0')+(il?-1:1);
+  if(cnt)cnt.textContent=nc; if(icon)icon.setAttribute('fill',il?'none':'currentColor');
+  if(il){btn.classList.remove('liked','text-red-500');myLikedPosts.delete(postId);}
+  else{btn.classList.add('liked','text-red-500');myLikedPosts.add(postId);}
+  localStorage.setItem('lp',JSON.stringify([...myLikedPosts]));
+  try{await updateDoc(doc(db,'posts',postId),{likeCount:increment(il?-1:1)});const p=postsCache.find(x=>x.id===postId);if(p){p.likeCount=nc;}const pe=document.querySelector('#feedList [data-post-id="'+postId+'"]');if(pe)pe.dataset.likes=nc;}
+  catch(e){console.error(e);if(il)myLikedPosts.add(postId);else myLikedPosts.delete(postId);localStorage.setItem('lp',JSON.stringify([...myLikedPosts]));}
+}
+
+// ── 讚 留言 ──
+async function toggleCommentLike(btn,commentId) {
+  if(!currentUser) return;
+  const il=myLikedComments.has(commentId), cnt=btn.querySelector('.like-count'), nc=parseInt(cnt?.textContent||'0')+(il?-1:1);
+  if(cnt)cnt.textContent=nc;
+  if(il){btn.classList.remove('liked','text-red-500');myLikedComments.delete(commentId);}
+  else{btn.classList.add('liked','text-red-500');myLikedComments.add(commentId);}
+  localStorage.setItem('lc',JSON.stringify([...myLikedComments]));
+  try{await updateDoc(doc(db,'comments',commentId),{likeCount:increment(il?-1:1)});}
+  catch(e){console.error(e);if(il)myLikedComments.add(commentId);else myLikedComments.delete(commentId);localStorage.setItem('lc',JSON.stringify([...myLikedComments]));}
+}
+
+// ── 個人主頁 ──
+async function openUserProfile(name) {
+  document.getElementById('profile-header-title').textContent=name;
+  document.getElementById('up-name').textContent=name;
+  const c=postsCache.find(p=>p.authorName===name);
+  document.getElementById('up-avatar-container').innerHTML=buildAvatarHTML(name,c?.authorAvatar,c?.authorInitial,c?.authorBg,'w-20 h-20',false);
+  switchProfileSubTab('posts');
+  document.getElementById('tab-user-profile').classList.remove('hidden');
+  const pe=document.getElementById('userProfilePosts'); pe.innerHTML='<div class="p-6 text-center text-gray-600 text-sm">載入中...</div>';
+  const isOwn=name===currentUser?.name;
+  try {
+    const q=query(collection(db,'posts'),where('authorName','==',name),where('isCrush','==',false),orderBy('timestamp','desc'));
+    const s=await getDocs(q); pe.innerHTML='';
+    if(s.empty){pe.innerHTML='<div class="p-10 text-center text-gray-500 text-sm">還沒有串文</div>';}
+    else s.docs.forEach(d=>{const p=normalizePost(d);pe.appendChild(buildPostEl(p,{showDeleteBtn:isOwn&&p.authorUid===currentUser.uid,forProfileView:true}));});
+  } catch(e){pe.innerHTML='<div class="p-10 text-center text-red-500 text-sm">載入失敗</div>';console.error(e);}
+  const re=document.getElementById('userProfileReplies'); re.innerHTML='<div class="p-6 text-center text-gray-600 text-sm">載入中...</div>';
+  try {
+    const q2=query(collection(db,'comments'),where('authorName','==',name),orderBy('timestamp','desc'),limit(50));
+    const s2=await getDocs(q2); re.innerHTML='';
+    if(s2.empty){re.innerHTML='<div class="p-10 text-center text-gray-500 text-sm">還沒有回覆紀錄</div>';}
+    else s2.docs.forEach(d=>{
+      const cd=d.data(), tp=postsCache.find(p=>p.id===cd.postId);
+      const w=document.createElement('div'); w.className='p-4 border-b border-gray-800 text-left';
+      w.innerHTML='<div class="text-xs text-gray-500 mb-3">在 <span class="text-white font-bold">'+safeText(tp?.authorName||'某則貼文')+'</span> 下留言：</div>';
+      w.appendChild(buildCommentEl({id:d.id,postId:cd.postId,authorName:cd.authorName,authorUid:cd.authorUid||'',authorAvatar:cd.authorAvatar,authorInitial:cd.authorInitial,authorBg:cd.authorBg,text:cd.text,timestamp:cd.timestamp?.toMillis?.()||Date.now(),likeCount:cd.likeCount||0,liked:myLikedComments.has(d.id),replyTo:cd.replyTo,replies:[]}));
+      re.appendChild(w);
+    });
+  } catch(e){re.innerHTML='<div class="p-10 text-center text-red-500 text-sm">載入失敗</div>';console.error(e);}
+}
+
+function closeUserProfile(){document.getElementById('tab-user-profile').classList.add('hidden');}
+function switchProfileSubTab(tab){
+  ['posts','replies'].forEach(t=>{
+    const b=document.getElementById('subtab-'+t), c=document.getElementById('userProfile'+t.charAt(0).toUpperCase()+t.slice(1));
+    if(t===tab){b.className='flex-1 text-center py-3 border-b-2 border-white font-bold text-sm text-white transition';c.classList.remove('hidden');}
+    else{b.className='flex-1 text-center py-3 text-gray-500 font-bold text-sm transition hover:text-gray-300';c.classList.add('hidden');}
+  });
+}
+
+// ── Tab 切換 ──
+function switchTab(tabId,btn){
+  closeUserProfile();
+  ['tab-feed','tab-search','tab-crush','tab-profile'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  document.getElementById(tabId).classList.remove('hidden');
+  document.querySelectorAll('.nav-btn').forEach(b=>{b.classList.remove('text-white');b.classList.add('text-gray-500');});
+  if(btn){btn.classList.remove('text-gray-500');btn.classList.add('text-white');}
+}
+
+// ── 留言展開 + Lazy Load ──
+function toggleComments(btn){
+  const section=btn.closest('.post-item').querySelector('.comments-section');
+  section.classList.toggle('hidden');
+}
+
+async function loadCommentsForPost(postId,listEl){
+  listEl.innerHTML='<div class="text-gray-600 text-xs text-center py-2">載入中...</div>';
+  try {
+    const q=query(collection(db,'comments'),where('postId','==',postId),where('parentId','==',null),orderBy('timestamp','asc'));
+    const snap=await getDocs(q); listEl.innerHTML='';
+    if(snap.empty){listEl.innerHTML='<div class="text-gray-600 text-xs text-center py-2">還沒有留言，第一個留言吧！</div>';return;}
+    const rq=query(collection(db,'comments'),where('postId','==',postId),where('parentId','!=',null),orderBy('parentId'),orderBy('timestamp','asc'));
+    const rs=await getDocs(rq); const rMap={};
+    rs.docs.forEach(d=>{const r=d.data();if(!rMap[r.parentId])rMap[r.parentId]=[];rMap[r.parentId].push({id:d.id,...r,timestamp:r.timestamp?.toMillis?.()||Date.now()});});
+    snap.docs.forEach(d=>{
+      const c=d.data();
+      listEl.appendChild(buildCommentEl({id:d.id,postId,authorName:c.authorName,authorUid:c.authorUid||'',authorAvatar:c.authorAvatar,authorInitial:c.authorInitial,authorBg:c.authorBg,text:c.text,timestamp:c.timestamp?.toMillis?.()||Date.now(),likeCount:c.likeCount||0,liked:myLikedComments.has(d.id),replyTo:null,replies:(rMap[d.id]||[]).map(r=>({...r,postId,likeCount:r.likeCount||0,liked:myLikedComments.has(r.id)}))}));
+    });
+  } catch(e){console.error(e);listEl.innerHTML='<div class="text-red-500 text-xs text-center py-2">載入失敗</div>';}
+}
+
+// ── 渲染：留言 ──
+function buildCommentEl(c,isNested=false){
+  const el=document.createElement('div');
+  el.className='flex gap-2 animate-fade-in text-left items-start '+(isNested?'':'mt-3')+' comment-item';
+  el.dataset.commentId=c.id; el.dataset.postId=c.postId||''; el.dataset.authorUid=c.authorUid||'';
+  const sz=isNested?'w-5 h-5 mt-0.5':'w-6 h-6 mt-1', av=buildAvatarHTML(c.authorName,c.authorAvatar,c.authorInitial,c.authorBg,sz);
+  const ts=getRelativeTime(c.timestamp||Date.now()), tx=isNested?'text-xs':'text-sm';
+  const il=myLikedComments.has(c.id)||c.liked, lc=il?'text-red-500 liked':'';
+  const rp=c.replyTo?'<span class="text-pink-400 mr-1">@'+safeText(c.replyTo)+'</span>':'';
+  const isOwn=c.authorUid&&currentUser&&c.authorUid===currentUser.uid;
+  const delBtn=isOwn?'<button onclick="window.deleteComment(this)" title="刪除" class="ml-auto flex-shrink-0 text-gray-700 hover:text-red-500 transition p-0.5 rounded"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>':'';
+  const replyBtn=!isNested?'<button onclick="window.openReplyBox(this,\''+safeAttr(c.authorName)+'\',\''+c.id+'\',\''+c.postId+'\')" class="hover:text-white transition-colors">回覆</button>':'';
+  const nested=(c.replies||[]).map(r=>buildCommentEl(r,true).outerHTML).join('');
+  el.innerHTML=av+'<div class="flex-1 w-full min-w-0 overflow-hidden comment-body"><div class="bg-gray-900/40 rounded-2xl rounded-tl-none p-3 border border-gray-800/50"><div class="flex items-center gap-2 mb-1"><span class="font-bold '+tx+' comment-author-name cursor-pointer hover:underline" onclick="window.openUserProfile(\''+safeAttr(c.authorName)+'\')">'+safeText(c.authorName)+'</span>'+delBtn+'</div><span class="text-gray-300 '+tx+' whitespace-pre-wrap break-words">'+rp+safeText(c.text)+'</span></div><div class="flex gap-4 mt-1 ml-2 text-xs text-gray-500 items-center"><span class="text-gray-600">'+ts+'</span><button onclick="window.toggleCommentLike(this,\''+c.id+'\')" class="hover:text-red-500 flex items-center gap-1 transition-colors '+lc+'"><span class="like-count">'+(c.likeCount||c.likes||0)+'</span> 讚</button>'+replyBtn+'</div><div class="nested-comments-list pl-4 border-l-2 border-gray-800/50 mt-2 space-y-2">'+nested+'</div></div>';
+  return el;
+}
+
+// ── 渲染：貼文 ──
+function buildPostEl(p,opts={}){
+  const {showDeleteBtn=false,forProfileView=false}=opts;
+  const el=document.createElement('div');
+  el.className='p-4 border-b border-gray-800 flex flex-col gap-3 post-item';
+  el.dataset.postId=p.id; el.dataset.timestamp=p.timestamp; el.dataset.likes=p.likeCount||0;
+  const isCrush=p.isCrush, il=myLikedPosts.has(p.id), lc=il?'text-red-500 liked':'', lf=il?'currentColor':'none';
+  const av=isCrush?'<div class="w-10 h-10 rounded-full bg-gray-900 border border-gray-800 flex-shrink-0 flex items-center justify-center text-base font-bold text-gray-500 mt-1">?</div>':buildAvatarHTML(p.authorName,p.authorAvatar,p.authorInitial,p.authorBg,'w-10 h-10 mt-1');
+  const img=p.imageUrl?'<img src="'+safeAttr(p.imageUrl)+'" class="mt-3 rounded-xl border border-gray-800 max-h-96 w-auto object-cover block">':'';
+  const del=showDeleteBtn?'<button onclick="window.deletePost(this)" class="delete-btn text-gray-600 hover:text-red-500 transition p-1 rounded hover:bg-red-500/10"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>':'';
+  const nc=!isCrush?`onclick="window.openUserProfile('${safeAttr(p.authorName)}')"`:'';
+  const mav=currentUser?.avatar?'<img src="'+safeAttr(currentUser.avatar)+'" class="w-6 h-6 rounded-full object-cover flex-shrink-0">':'<div class="w-6 h-6 rounded-full bg-gray-700 flex-shrink-0 flex items-center justify-center text-[10px] font-bold">'+safeText((currentUser?.name||'?').charAt(0))+'</div>';
+  const cInput=(!isCrush&&!forProfileView)?'<div class="mt-4 bg-gray-900/50 p-3 rounded-xl border border-gray-800"><div class="flex gap-2 items-start">'+mav+'<div class="flex-1" data-input-area="1"><input type="text" class="reply-input w-full bg-transparent border-b border-gray-700 text-sm pb-1 outline-none text-white focus:border-gray-500 mb-2" placeholder="寫下留言..."><div class="flex justify-end mt-2"><button onclick="window.submitComment(this)" class="text-white font-bold text-sm bg-gray-800 px-4 py-1.5 rounded-full hover:bg-gray-700 transition">發佈</button></div></div></div></div>':'';
+  const cs=!isCrush?'<div class="comments-section hidden pl-12 mt-2"><div class="border-l-2 border-gray-800 pl-4 space-y-4 text-left"><div class="comments-list space-y-4"></div>'+cInput+'</div></div>':'';
+  el.innerHTML='<div class="flex gap-3">'+av+'<div class="flex-1 text-left overflow-hidden"><div class="flex justify-between items-start w-full"><div class="flex items-center gap-2 mb-1 w-fit" '+nc+'><span class="font-bold text-[15px] '+(isCrush?'text-gray-300':'author-name hover:underline cursor-pointer')+'">'+safeText(p.authorName)+'</span><span class="text-gray-500 text-sm">'+p.displayTime+'</span></div>'+del+'</div><p class="text-[15px] leading-relaxed whitespace-pre-wrap '+(isCrush?'text-pink-100/90':'')+'">'+safeText(p.text)+'</p>'+img+'<div class="flex gap-4 mt-3 text-gray-500 text-sm items-center"><button onclick="window.togglePostLike(this,\''+p.id+'\')" class="flex items-center gap-1 group '+lc+'"><svg class="w-5 h-5 group-hover:text-red-500 transition-colors like-icon" fill="'+lf+'" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"/></svg><span class="like-count">'+(p.likeCount||0)+'</span></button>'+(isCrush?'':'<button onclick="window.toggleComments(this)" class="flex items-center gap-1 hover:text-gray-300 transition cmtToggleBtn"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 01-.923 1.785A5.969 5.969 0 006 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337z"/></svg><span class="comment-count">'+(p.commentCount||0)+'</span></button>')+'</div></div></div>'+cs;
+  if(!isCrush){
+    let loaded=false;
+    const cmtBtn=el.querySelector('.cmtToggleBtn');
+    if(cmtBtn) cmtBtn.addEventListener('click',async()=>{if(!loaded){loaded=true;await loadCommentsForPost(p.id,el.querySelector('.comments-list'));}});
+  }
+  return el;
+}
+
+// ── 暴露 window ──
+Object.assign(window,{
+  signInWithGoogle,signOutUser,saveProfile,
+  submitPost,submitComment,submitReply,openReplyBox,toggleComments,
+  deletePost,deleteComment,deleteAllMyPosts,deleteAllMyComments,deleteEverything,
+  togglePostLike,toggleCommentLike,
+  openUserProfile,closeUserProfile,switchProfileSubTab,
+  switchTab,applyAlgorithm,searchPosts,
+  handleImageSelect,removePreview
+});
+</script>
+</body>
+</html>
